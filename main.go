@@ -58,7 +58,18 @@ func resc(c *cli.Context) {
 	start := c.Timestamp("start")
 	end := c.Timestamp("end")
 	limit := c.Int("limit")
-	replay, err := new(blockNumber, *start, *end, limit)
+
+	ch := make(chan struct {
+		string
+		int
+	}, 1000)
+
+	go func() {
+		for recv := range ch {
+			fmt.Println("########", recv.string, recv.int)
+		}
+	}()
+	replay, err := new(blockNumber, *start, *end, limit, ch)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -79,7 +90,10 @@ type replay struct {
 	}
 }
 
-func new(blockNumber int64, start, end time.Time, limit int) (replay, error) {
+func new(blockNumber int64, start, end time.Time, limit int, ch chan struct {
+	string
+	int
+}) (replay, error) {
 
 	client, err := ethclient.Dial("http://127.0.0.1:8545")
 	if err != nil {
@@ -89,17 +103,6 @@ func new(blockNumber int64, start, end time.Time, limit int) (replay, error) {
 	if err != nil {
 		return replay{}, err
 	}
-	ch := make(chan struct {
-		string
-		int
-	}, 1000)
-	defer close(ch)
-	go func() {
-		for recv := range ch {
-			fmt.Println("########", recv.string, recv.int)
-		}
-
-	}()
 	replay := replay{
 		blockNumber: blockNumber,
 		start:       start,
