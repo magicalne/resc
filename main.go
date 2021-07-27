@@ -65,8 +65,17 @@ func resc(c *cli.Context) {
 	}, 1000)
 
 	go func() {
+		f, err := os.OpenFile("resc.csv", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		f.WriteString("tx,max_depth")
+		format := "%s,%d\n"
+
 		for recv := range ch {
-			fmt.Println("########", recv.string, recv.int)
+			f.WriteString(fmt.Sprintf(format, recv.string, recv.int))
+			// fmt.Println("########", recv.string, recv.int)
 		}
 	}()
 	replay, err := new(blockNumber, *start, *end, limit, ch)
@@ -160,7 +169,6 @@ func (r *replay) replayTx(blockNumber big.Int, txs types.Transactions) {
 						string
 						int
 					}{tx.Hash().String(), int(maxDepth)}
-					fmt.Println(tx.Hash(), maxDepth)
 				}
 				r.cnt++
 			}
