@@ -65,18 +65,20 @@ func resc(c *cli.Context) {
 	}, 1000)
 
 	go func() {
-		f, err := os.OpenFile("resc.csv", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		epoch := time.Now().Unix()
+		fileName := fmt.Sprintf("resc-%d.csv", epoch)
+		f, err := os.OpenFile(fileName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			panic(err)
 		}
 		defer f.Close()
-		f.WriteString("tx,max_depth")
+		f.WriteString("tx,max_depth\n")
 		format := "%s,%d\n"
 
 		for recv := range ch {
 			f.WriteString(fmt.Sprintf(format, recv.string, recv.int))
-			// fmt.Println("########", recv.string, recv.int)
 		}
+		f.Close()
 	}()
 	replay, err := new(blockNumber, *start, *end, limit, ch)
 	if err != nil {
