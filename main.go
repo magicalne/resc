@@ -107,7 +107,7 @@ func new(blockNumber int64, start, end time.Time, limit int, ch chan struct {
 	int
 }) (replay, error) {
 
-	client, err := ethclient.Dial("https://mainnet.infura.io/v3/c0439b1de7dc42aa981b4da9110350e8")
+	client, err := ethclient.Dial("http://localhost:8545")
 	if err != nil {
 		return replay{}, err
 	}
