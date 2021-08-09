@@ -76,6 +76,7 @@ func resc(c *cli.Context) {
 		format := "%s,%d\n"
 
 		for recv := range ch {
+			fmt.Printf("tx: %v, max depth: %v\n", recv.string, recv.int)
 			f.WriteString(fmt.Sprintf(format, recv.string, recv.int))
 		}
 		f.Close()
@@ -106,7 +107,7 @@ func new(blockNumber int64, start, end time.Time, limit int, ch chan struct {
 	int
 }) (replay, error) {
 
-	client, err := ethclient.Dial("http://127.0.0.1:8545")
+	client, err := ethclient.Dial("https://mainnet.infura.io/v3/c0439b1de7dc42aa981b4da9110350e8")
 	if err != nil {
 		return replay{}, err
 	}
@@ -139,8 +140,9 @@ func (r *replay) traverseBlock() {
 
 		blockTimestamp := int64(block.Time())
 		blockTime := time.Unix(blockTimestamp, 0)
+		fmt.Printf("block: %v, %v\n", block.Number(), blockTime)
 		if len(block.Transactions()) > 0 && blockTime.After(r.start) && blockTime.Before(r.end) {
-			if r.cnt > r.limit {
+			if r.limit > 0 && r.cnt > r.limit {
 				break
 			}
 			r.replayTx(*blockNumber, block.Transactions())
@@ -151,8 +153,10 @@ func (r *replay) traverseBlock() {
 
 func (r *replay) replayTx(blockNumber big.Int, txs types.Transactions) {
 	for _, tx := range txs {
+		fmt.Printf("tx: %v\n", tx.Hash())
 		// only contract tx
 		if len(tx.Data()) > 0 && tx.To() != nil {
+			fmt.Printf("contract tx: %v\n", tx.Hash())
 			if msg, err := tx.AsMessage(types.NewEIP155Signer(&r.chainID), big.NewInt(0)); err == nil {
 				callMsg := ethereum.CallMsg{
 					From:       msg.From(),
@@ -165,14 +169,21 @@ func (r *replay) replayTx(blockNumber big.Int, txs types.Transactions) {
 					Data:       msg.Data(),
 					AccessList: msg.AccessList(),
 				}
-				if call, err := r.client.CallContract(context.Background(), callMsg, &blockNumber); err == nil {
+				fmt.Printf("to: %v\n", msg.To())
+				call, err := r.client.CallContract(context.Background(), callMsg, &blockNumber)
+
+				if err != nil {
+					// log.Fatal(err)
+					fmt.Printf("err: %v\n", err)
+				} else {
 					maxDepth := binary.LittleEndian.Uint32(call)
 					r.ch <- struct {
 						string
 						int
 					}{tx.Hash().String(), int(maxDepth)}
+
+					r.cnt++
 				}
-				r.cnt++
 			}
 
 		}
