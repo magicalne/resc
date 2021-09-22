@@ -80,9 +80,14 @@ func resc(c *cli.Context) {
 		format := "%s,%s\n"
 
 		for recv := range ch {
-			fmt.Printf("tx: %v, metadata: %v\n", recv.string, recv.MetadataStats)
-			metadataStr := recv.MetadataStats.toCsvRow()
-			f.WriteString(fmt.Sprintf(format, recv.string, metadataStr))
+			stats := recv.MetadataStats
+			if stats.CallDepth > 0 {
+				fmt.Printf("tx: %v, metadata: %v\n", recv.string, stats)
+				metadataStr := stats.toCsvRow()
+				row := fmt.Sprintf(format, recv.string, metadataStr)
+				fmt.Printf("row: %s", row)
+				f.WriteString(row)
+			}
 		}
 		f.Close()
 	}()
@@ -205,23 +210,24 @@ func csvHeaderStr() string {
 }
 
 func (stats *MetadataStats) toCsvRow() string {
+
 	cols := []string{
-		string(stats.CallDepth),
-		string(stats.CreateStats.Cnt),
-		string(stats.CreateStats.MaxLen),
-		string(stats.CreateStats.MinLen),
-		string(stats.Create2Stats.Cnt),
-		string(stats.Create2Stats.MaxLen),
-		string(stats.Create2Stats.MinLen),
-		string(stats.CallStats.Cnt),
-		string(stats.CallStats.MaxLen),
-		string(stats.CallStats.MinLen),
-		string(stats.CallCodeStats.Cnt),
-		string(stats.CallCodeStats.MaxLen),
-		string(stats.CallCodeStats.MinLen),
-		string(stats.DelegateCallStats.Cnt),
-		string(stats.DelegateCallStats.MaxLen),
-		string(stats.DelegateCallStats.MinLen),
+		fmt.Sprint(stats.CallDepth),
+		fmt.Sprint(stats.CreateStats.Cnt),
+		fmt.Sprint(stats.CreateStats.MaxLen),
+		fmt.Sprint(stats.CreateStats.MinLen),
+		fmt.Sprint(stats.Create2Stats.Cnt),
+		fmt.Sprint(stats.Create2Stats.MaxLen),
+		fmt.Sprint(stats.Create2Stats.MinLen),
+		fmt.Sprint(stats.CallStats.Cnt),
+		fmt.Sprint(stats.CallStats.MaxLen),
+		fmt.Sprint(stats.CallStats.MinLen),
+		fmt.Sprint(stats.CallCodeStats.Cnt),
+		fmt.Sprint(stats.CallCodeStats.MaxLen),
+		fmt.Sprint(stats.CallCodeStats.MinLen),
+		fmt.Sprint(stats.DelegateCallStats.Cnt),
+		fmt.Sprint(stats.DelegateCallStats.MaxLen),
+		fmt.Sprint(stats.DelegateCallStats.MinLen),
 	}
 	return strings.Join(cols, ",")
 }
