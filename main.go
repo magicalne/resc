@@ -205,29 +205,23 @@ func csvHeaderStr() string {
 }
 
 func (stats *MetadataStats) toCsvRow() string {
-	metadata := Metadata{
-		callMaxDepth:           stats.CallDepth,
-		createCnt:              stats.CreateStats.Cnt,
-		createCodeMaxLen:       stats.CreateStats.MaxLen,
-		createCodeMinLen:       stats.CreateStats.MinLen,
-		create2Cnt:             stats.Create2Stats.Cnt,
-		create2CodeMaxLen:      stats.Create2Stats.MaxLen,
-		create2CodeMinLen:      stats.Create2Stats.MinLen,
-		callCnt:                stats.CallStats.Cnt,
-		callCodeMaxLen:         stats.CallStats.MaxLen,
-		callCodeMinLen:         stats.CallStats.MinLen,
-		callCodeCnt:            stats.CallCodeStats.Cnt,
-		callCodeCodeMaxLen:     stats.CallCodeStats.MaxLen,
-		callCodeCodeMinLen:     stats.CallCodeStats.MinLen,
-		delegateCodeCnt:        stats.DelegateCallStats.Cnt,
-		delegateCodeCodeMaxLen: stats.DelegateCallStats.MaxLen,
-		delegateCodeCodeMinLen: stats.DelegateCallStats.MinLen,
-	}
-	v := reflect.ValueOf(metadata)
-	typeOfS := v.Type()
-	var cols []string
-	for i := 0; i < typeOfS.NumField(); i++ {
-		cols = append(cols, string(v.Field(i).Interface().(int32)))
+	cols := []string{
+		string(stats.CallDepth),
+		string(stats.CreateStats.Cnt),
+		string(stats.CreateStats.MaxLen),
+		string(stats.CreateStats.MinLen),
+		string(stats.Create2Stats.Cnt),
+		string(stats.Create2Stats.MaxLen),
+		string(stats.Create2Stats.MinLen),
+		string(stats.CallStats.Cnt),
+		string(stats.CallStats.MaxLen),
+		string(stats.CallStats.MinLen),
+		string(stats.CallCodeStats.Cnt),
+		string(stats.CallCodeStats.MaxLen),
+		string(stats.CallCodeStats.MinLen),
+		string(stats.DelegateCallStats.Cnt),
+		string(stats.DelegateCallStats.MaxLen),
+		string(stats.DelegateCallStats.MinLen),
 	}
 	return strings.Join(cols, ",")
 }
