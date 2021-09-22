@@ -64,7 +64,7 @@ func resc(c *cli.Context) {
 
 	ch := make(chan struct {
 		string
-		Metadata
+		MetadataStats
 	}, 1000)
 
 	go func() {
@@ -80,8 +80,8 @@ func resc(c *cli.Context) {
 		format := "%s,%s\n"
 
 		for recv := range ch {
-			fmt.Printf("tx: %v, metadata: %v\n", recv.string, recv.Metadata)
-			metadataStr := recv.Metadata.toCsvRow()
+			fmt.Printf("tx: %v, metadata: %v\n", recv.string, recv.MetadataStats)
+			metadataStr := recv.MetadataStats.toCsvRow()
 			f.WriteString(fmt.Sprintf(format, recv.string, metadataStr))
 		}
 		f.Close()
@@ -103,13 +103,13 @@ type replay struct {
 	cnt         int
 	ch          chan struct {
 		string
-		Metadata
+		MetadataStats
 	}
 }
 
 func new(blockNumber int64, start, end time.Time, limit int, ch chan struct {
 	string
-	Metadata
+	MetadataStats
 }) (replay, error) {
 
 	client, err := ethclient.Dial("http://localhost:8545")
@@ -156,6 +156,19 @@ func (r *replay) traverseBlock() {
 	}
 }
 
+type CodeStats struct {
+	Cnt    int32
+	MaxLen int32
+	MinLen int32
+}
+type MetadataStats struct {
+	CallDepth         int32
+	CreateStats       CodeStats
+	Create2Stats      CodeStats
+	CallStats         CodeStats
+	CallCodeStats     CodeStats
+	DelegateCallStats CodeStats
+}
 type Metadata struct {
 	callMaxDepth int32
 
@@ -191,7 +204,25 @@ func csvHeaderStr() string {
 	return strings.Join(cols, ",")
 }
 
-func (metadata *Metadata) toCsvRow() string {
+func (stats *MetadataStats) toCsvRow() string {
+	metadata := Metadata{
+		callMaxDepth:           stats.CallDepth,
+		createCnt:              stats.CreateStats.Cnt,
+		createCodeMaxLen:       stats.CreateStats.MaxLen,
+		createCodeMinLen:       stats.CreateStats.MinLen,
+		create2Cnt:             stats.Create2Stats.Cnt,
+		create2CodeMaxLen:      stats.Create2Stats.MaxLen,
+		create2CodeMinLen:      stats.Create2Stats.MinLen,
+		callCnt:                stats.CallStats.Cnt,
+		callCodeMaxLen:         stats.CallStats.MaxLen,
+		callCodeMinLen:         stats.CallStats.MinLen,
+		callCodeCnt:            stats.CallCodeStats.Cnt,
+		callCodeCodeMaxLen:     stats.CallCodeStats.MaxLen,
+		callCodeCodeMinLen:     stats.CallCodeStats.MinLen,
+		delegateCodeCnt:        stats.DelegateCallStats.Cnt,
+		delegateCodeCodeMaxLen: stats.DelegateCallStats.MaxLen,
+		delegateCodeCodeMinLen: stats.DelegateCallStats.MinLen,
+	}
 	v := reflect.ValueOf(metadata)
 	typeOfS := v.Type()
 	var cols []string
@@ -226,12 +257,12 @@ func (r *replay) replayTx(blockNumber big.Int, txs types.Transactions) {
 					// log.Fatal(err)
 					fmt.Printf("err: %v\n", err)
 				} else {
-					var metadata = Metadata{}
+					var metadata = MetadataStats{}
 					buf := bytes.NewReader(res)
 					binary.Read(buf, binary.LittleEndian, &metadata)
 					r.ch <- struct {
 						string
-						Metadata
+						MetadataStats
 					}{tx.Hash().String(), metadata}
 
 					r.cnt++
