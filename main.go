@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
 	"log"
 	"math/big"
 	"os"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -61,7 +64,7 @@ func resc(c *cli.Context) {
 
 	ch := make(chan struct {
 		string
-		int
+		Metadata
 	}, 1000)
 
 	go func() {
@@ -72,12 +75,14 @@ func resc(c *cli.Context) {
 			panic(err)
 		}
 		defer f.Close()
-		f.WriteString("tx,max_depth\n")
-		format := "%s,%d\n"
+		headerFormat := "tx,%s,\n"
+		f.WriteString(fmt.Sprintf(headerFormat, csvHeaderStr()))
+		format := "%s,%s\n"
 
 		for recv := range ch {
-			fmt.Printf("tx: %v, max depth: %v\n", recv.string, recv.int)
-			f.WriteString(fmt.Sprintf(format, recv.string, recv.int))
+			fmt.Printf("tx: %v, metadata: %v\n", recv.string, recv.Metadata)
+			metadataStr := recv.Metadata.toCsvRow()
+			f.WriteString(fmt.Sprintf(format, recv.string, metadataStr))
 		}
 		f.Close()
 	}()
@@ -98,13 +103,13 @@ type replay struct {
 	cnt         int
 	ch          chan struct {
 		string
-		int
+		Metadata
 	}
 }
 
 func new(blockNumber int64, start, end time.Time, limit int, ch chan struct {
 	string
-	int
+	Metadata
 }) (replay, error) {
 
 	client, err := ethclient.Dial("http://localhost:8545")
@@ -151,6 +156,51 @@ func (r *replay) traverseBlock() {
 	}
 }
 
+type Metadata struct {
+	callMaxDepth int32
+
+	createCnt        int32
+	createCodeMaxLen int32
+	createCodeMinLen int32
+
+	create2Cnt        int32
+	create2CodeMaxLen int32
+	create2CodeMinLen int32
+
+	callCnt        int32
+	callCodeMaxLen int32
+	callCodeMinLen int32
+
+	callCodeCnt        int32
+	callCodeCodeMaxLen int32
+	callCodeCodeMinLen int32
+
+	delegateCodeCnt        int32
+	delegateCodeCodeMaxLen int32
+	delegateCodeCodeMinLen int32
+}
+
+func csvHeaderStr() string {
+	metadata := Metadata{}
+	v := reflect.ValueOf(metadata)
+	typeOfS := v.Type()
+	var cols []string
+	for i := 0; i < typeOfS.NumField(); i++ {
+		cols = append(cols, typeOfS.Field(i).Name)
+	}
+	return strings.Join(cols, ",")
+}
+
+func (metadata *Metadata) toCsvRow() string {
+	v := reflect.ValueOf(metadata)
+	typeOfS := v.Type()
+	var cols []string
+	for i := 0; i < typeOfS.NumField(); i++ {
+		cols = append(cols, string(v.Field(i).Interface().(int32)))
+	}
+	return strings.Join(cols, ",")
+}
+
 func (r *replay) replayTx(blockNumber big.Int, txs types.Transactions) {
 	for _, tx := range txs {
 		fmt.Printf("tx: %v\n", tx.Hash())
@@ -170,17 +220,19 @@ func (r *replay) replayTx(blockNumber big.Int, txs types.Transactions) {
 					AccessList: msg.AccessList(),
 				}
 				fmt.Printf("to: %v\n", msg.To())
-				call, err := r.client.CallContract(context.Background(), callMsg, &blockNumber)
+				res, err := r.client.CallContract(context.Background(), callMsg, &blockNumber)
 
 				if err != nil {
 					// log.Fatal(err)
 					fmt.Printf("err: %v\n", err)
 				} else {
-					maxDepth := binary.LittleEndian.Uint32(call)
+					var metadata = Metadata{}
+					buf := bytes.NewReader(res)
+					binary.Read(buf, binary.LittleEndian, &metadata)
 					r.ch <- struct {
 						string
-						int
-					}{tx.Hash().String(), int(maxDepth)}
+						Metadata
+					}{tx.Hash().String(), metadata}
 
 					r.cnt++
 				}
